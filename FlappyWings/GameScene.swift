@@ -22,6 +22,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     let birdGroup:UInt32 = 1;
     let objGroup:UInt32 = 2;
     let gapGroup:UInt32 = 0 << 3;
+    let bonusGroup:UInt32 = 4 << 7;
     
     var movingObjects = SKNode();
     
@@ -41,7 +42,6 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         ScoreLabel.text = "0";
         ScoreLabel.position = CGPointMake(CGRectGetMidX(self.frame), self.frame.size.height - 70);
         
-        
         //Skin textures
         var birdFlap = SKTexture(imageNamed: "flappy2");
         var birdTexture = SKTexture(imageNamed:"flappy1");
@@ -56,12 +56,12 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         bird.zPosition = 10;
         bird.runAction(makeBirdFlap);
         bird.physicsBody?.categoryBitMask = birdGroup;
-        bird.physicsBody?.collisionBitMask = gapGroup;
+        bird.physicsBody?.collisionBitMask = gapGroup | bonusGroup;
         
         //Gravity
         bird.physicsBody = SKPhysicsBody(circleOfRadius: bird.size.height / 2);
         bird.physicsBody?.dynamic = true;
-        bird.physicsBody?.allowsRotation = true;
+        bird.physicsBody?.allowsRotation = false;
         
         
         //PipeStuff
@@ -118,6 +118,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
             pipeDown.physicsBody?.collisionBitMask = birdGroup;
             pipeDown.physicsBody?.contactTestBitMask = birdGroup;
             
+            //Make Gap to keep score
             var gap = SKNode();
             gap.position = CGPoint(x: CGRectGetMidX(self.frame) + self.frame.size.width, y: CGRectGetMidY(self.frame) + pipeOffset);
             gap.physicsBody = SKPhysicsBody(rectangleOfSize: CGSizeMake(pipeUp.size.width, gapHeight));
@@ -126,6 +127,52 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
             gap.physicsBody?.collisionBitMask = gapGroup;
             gap.physicsBody?.categoryBitMask = gapGroup;
             gap.physicsBody?.contactTestBitMask = birdGroup;
+            
+            
+            //Make Candy
+            var randomNumber = arc4random() % UInt32(self.frame.size.height / 2);
+            println(randomNumber);
+            if(randomNumber % 5 == 0){
+                var candyTexture = SKTexture(imageNamed: "chocolateBar");
+                var candy = SKSpiritNodeWithCount(texture: candyTexture);
+                candy.count = 3;
+                candy.position = CGPoint(x: CGRectGetMidX(self.frame) + self.frame.size.width+250, y: 150);
+                //            candy.zPosition = 15;
+                candy.physicsBody = SKPhysicsBody(rectangleOfSize: CGSizeMake(pipeUp.size.width, gapHeight));
+                candy.physicsBody?.dynamic = false;
+                candy.runAction(moveAndRemovePipes);
+                candy.physicsBody?.collisionBitMask = bonusGroup;
+                candy.physicsBody?.categoryBitMask = bonusGroup;
+                candy.physicsBody?.contactTestBitMask = birdGroup;
+                movingObjects.addChild(candy);
+                
+            } else if(randomNumber % 3 == 0){
+                var candyTexture = SKTexture(imageNamed: "candycorn");
+                var candy = SKSpiritNodeWithCount(texture: candyTexture);
+                candy.count = 2;
+                candy.position = CGPoint(x: CGRectGetMidX(self.frame) + self.frame.size.width+150, y: 150);
+                //            candy.zPosition = 15;
+                candy.physicsBody = SKPhysicsBody(rectangleOfSize: CGSizeMake(candy.size.width, candy.size.height));
+                candy.physicsBody?.dynamic = false;
+                candy.runAction(moveAndRemovePipes);
+                candy.physicsBody?.collisionBitMask = bonusGroup;
+                candy.physicsBody?.categoryBitMask = bonusGroup;
+                candy.physicsBody?.contactTestBitMask = birdGroup;
+                movingObjects.addChild(candy);
+            } else if (randomNumber % 2 == 0){
+                var candyTexture = SKTexture(imageNamed: "pumpkin");
+                var candy = SKSpiritNodeWithCount(texture: candyTexture);
+                candy.count = 1;
+                candy.position = CGPoint(x: CGRectGetMidX(self.frame) + self.frame.size.width+150, y: 150);
+                //            candy.zPosition = 15;
+                candy.physicsBody = SKPhysicsBody(rectangleOfSize: CGSizeMake(candy.size.width, candy.size.height));
+                candy.physicsBody?.dynamic = false;
+                candy.runAction(moveAndRemovePipes);
+                candy.physicsBody?.collisionBitMask = bonusGroup;
+                candy.physicsBody?.categoryBitMask = bonusGroup;
+                candy.physicsBody?.contactTestBitMask = birdGroup;
+                movingObjects.addChild(candy);
+            }
             
             
             //Add to moving Objects
@@ -151,7 +198,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
             
             bg.runAction(moveBackgroundForever);
             
-            self.addChild(bg);
+            movingObjects.addChild(bg);
         }
     }
     
@@ -163,7 +210,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         } else {
             score = 0;
             ScoreLabel.text = "0";
-            
+            self.addChild(ground);
             movingObjects.removeAllChildren();
             makeBackground();
             gameOver = 0;
@@ -184,11 +231,30 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
             
             score++;
             ScoreLabel.text = "\(score)";
-        } else if(gameOver == 0){
+        } else if(contact.bodyA.categoryBitMask == bonusGroup || contact.bodyB.categoryBitMask == bonusGroup){
+            println("touch");
+            var node = contact.bodyA.node as! SKSpiritNodeWithCount;
+            println("node: \(node.count)");
             
+            if(node.count == 3){
+                score += 5;
+            } else if(node.count == 2){
+                score+=3
+            } else if(node.count == 1){
+                score+=2;
+            }
+            
+            
+            contact.bodyA.node?.removeFromParent();
+            
+            
+            ScoreLabel.text = "\(score)";
+            
+        }else if(gameOver == 0){
+        
             gameOver = 1;
             movingObjects.speed = 0;
-            
+            ground.removeFromParent();
             RestartLabel.fontName = "Helvitica";
             RestartLabel.fontSize = 30;
             RestartLabel.zPosition = 11;
